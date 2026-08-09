@@ -2,26 +2,20 @@
 
 Evidence-driven AI-assisted Kubernetes incident diagnosis and remediation with deterministic safety controls, bounded automation, human approval, and verifiable operational evidence.
 
-## Project Question
+## Project question
 
 > Can an AI agent system diagnose Kubernetes deployment failures using verifiable operational evidence while remaining safe, explainable, and useful to production engineers?
 
-This project explores that question across four dimensions:
+The project evaluates four dimensions:
 
-* **Diagnostic accuracy** — can the system correctly characterize an operational failure?
-* **Evidence traceability** — can an engineer see what evidence supports the diagnosis?
-* **Operational safety** — can AI reasoning be separated from infrastructure authorization?
-* **Practical usability** — can the system actually participate in incident response rather than only produce text?
+- **Diagnostic accuracy**
+- **Evidence traceability**
+- **Operational safety**
+- **Practical usability**
 
-The project demonstrates three Kubernetes incident scenarios with intentionally different remediation policies.
+## Core design principle
 
----
-
-## Key Idea
-
-The project does **not** give an LLM unrestricted Kubernetes access.
-
-Instead, it separates:
+The LLM is **not** the infrastructure authorization boundary.
 
 ```text
 observation
@@ -43,654 +37,414 @@ post-action verification
 persistent audit record
 ```
 
-The LLM can help answer:
+The degree of automation depends on the strength of the operational evidence and the risk of the proposed action.
 
-```text
-What appears to be happening?
-```
+## Demonstrated scenarios
 
-It does not independently decide:
-
-```text
-What infrastructure change am I allowed to execute?
-```
-
-Authorization remains controlled by deterministic workflow logic and Kubernetes RBAC.
-
----
-
-# Demonstrated Scenarios
-
-| Scenario                        | Failure                                                         | Agent Behavior                                                            | Remediation                              |
-| ------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------- |
-| **1 — Kubernetes self-healing** | Application Pod deleted                                         | Detects disruption, observes Kubernetes recovery, verifies health         | None                                     |
-| **2 — Deployment regression**   | Recent application revision develops runtime DB-pool exhaustion | Correlates failures with recent deployment and healthy dependency         | Automatic bounded rollback               |
-| **3 — Repeated OOMKilled**      | Container repeatedly exceeds 192Mi memory limit                 | Identifies memory-limit breach but preserves uncertainty about root cause | Human-approved bounded increase to 512Mi |
-
-The scenarios deliberately demonstrate three different authority levels:
+| Scenario | Failure | Agent behavior | Authority level |
+|---|---|---|---|
+| **1 — Kubernetes self-healing** | Application Pod disappears | Detects the disruption and verifies native Kubernetes recovery | Observe only |
+| **2 — Deployment regression** | A recent release develops runtime DB-pool exhaustion | Correlates failure with the rollout, evaluates deterministic rollback policy, rolls back, and verifies recovery | Bounded autonomous remediation |
+| **3 — Repeated OOMKilled** | Container repeatedly exceeds its 192Mi memory limit | Identifies the observed condition, preserves root-cause uncertainty, and pauses for operator approval | Human-approved remediation |
 
 ```text
 Scenario 1
-observe only
+Observe → Verify → No action
 
 Scenario 2
-bounded autonomous remediation
+Observe → Diagnose → Policy allows → Auto-remediate → Verify
 
 Scenario 3
-human-approved remediation
+Observe → Diagnose uncertainty → Policy blocks → Human approves
+        → Bounded mitigation → Verify
 ```
 
----
+## LangGraph workflow
 
-# Architecture
+The project exposes one LangGraph workflow, `sre_agent`, used for both incident processing and conversational investigation.
 
-The project runs as several Kubernetes workloads.
+<img src="docs/images/agent-workflow.png" alt="LangGraph workflow for AI SRE Kubernetes Agent" width="100%">
+
+The graph deliberately separates:
+
+- evidence collection from diagnosis,
+- AI-assisted diagnosis from deterministic authorization,
+- automatic remediation from human-approved remediation,
+- remediation from post-action verification,
+- conversational read-only investigation from infrastructure write paths.
+
+## Architecture
 
 ```text
-                         ┌──────────────────────────┐
-                         │       user-agent         │
-                         │ synthetic API traffic    │
-                         └─────────────┬────────────┘
-                                       │
-                                       │ HTTP
-                                       ▼
-                         ┌──────────────────────────┐
-                         │ bulletin-board-service   │
-                         │ Python API               │
-                         │                          │
-                         │ health probes            │
-                         │ controlled fault injection│
-                         └─────────────┬────────────┘
-                                       │
-                                       ▼
-                              ┌─────────────────┐
-                              │   PostgreSQL    │
-                              └─────────────────┘
-
-
-         Kubernetes API / Logs / Events / Deployment history / Health
-                               │
-                               ▼
-                    ┌─────────────────────────┐
-                    │       sre-agent         │
-                    │                         │
-                    │ continuous observer     │
-                    │ evidence collection     │
-                    │ incident persistence    │
-                    │ AI-assisted diagnosis   │
-                    │ deterministic policy    │
-                    │ remediation execution   │
-                    │ recovery verification   │
-                    └────────────┬────────────┘
-                                 │
-                                 ▼
-                    ┌─────────────────────────┐
-                    │ LangGraph Agent Server  │
-                    │                         │
-                    │ unified sre_agent graph │
-                    │ HITL interrupts         │
-                    │ LangSmith Studio        │
-                    └─────────────────────────┘
+user-agent
+    │ synthetic HTTP traffic
+    ▼
+bulletin-board-service ─────► PostgreSQL
+    ▲
+    │ Kubernetes API / logs / events / health / deployment history
+    │
+sre-agent
+    ├── continuous observer
+    ├── evidence persistence
+    ├── AI-assisted diagnosis
+    ├── deterministic policy
+    ├── bounded remediation
+    └── verification
+          │
+          ▼
+    LangGraph Agent Server
+    └── one exported graph: sre_agent
+        ├── conversational investigation
+        ├── Scenario 1: verify Kubernetes self-healing
+        ├── Scenario 2: deterministic automatic rollback
+        └── Scenario 3: human-approved bounded mitigation
 ```
 
-More detail:
+Detailed design:
 
-* [Architecture](docs/architecture.md)
-* [Safety Model](docs/safety.md)
-* [Evidence Model](docs/evidence-model.md)
-* [Limitations](docs/limitations.md)
+- [Architecture](docs/architecture.md)
+- [Safety model](docs/safety.md)
+- [Evidence model](docs/evidence-model.md)
+- [Limitations](docs/limitations.md)
 
----
+## Components
 
-# Components
+### `bulletin-board-service`
 
-## `bulletin-board-service`
+Python/FastAPI application under observation, backed by PostgreSQL. It exposes normal application APIs, liveness/readiness endpoints, and controlled demo fault injection.
 
-A small Python API used as the workload under observation.
-
-It provides:
-
-* REST message API,
-* PostgreSQL persistence,
-* liveness probe,
-* readiness probe,
-* controlled fault injection for reproducible experiments.
-
-The application is intentionally simple so the project can focus on SRE behavior rather than application complexity.
-
-Current demonstration baseline:
+Current baseline:
 
 ```text
 image: bulletin-board-service:0.4.0
-
 memory request: 96Mi
-memory limit:   192Mi
+memory limit: 192Mi
 ```
+
+### `user-agent`
+
+Synthetic traffic generator that calls the bulletin-board API every 3–5 seconds.
+
+The SRE agent deliberately does **not** read `user-agent` logs, metrics, or Kubernetes resources. The traffic generator behaves like an external workload, not an observability source.
+
+Current version: `0.1.0`.
+
+### `sre-agent`
+
+Continuous observer, evidence store, conversational interface, LangGraph workflow, deterministic policy engine, remediation executor, and verification loop.
+
+Current version: **`0.5.2`**.
+
+Version `0.5.2` adds bounded conversational evidence retrieval so a chat request does not inject entire nested incident histories into the model context. The chat branch retrieves compact incident summaries first and fetches bounded detail for a specific incident only when necessary.
 
 ---
 
-## `user-agent`
+# Scenario 1 — Observe and verify Kubernetes self-healing
 
-A synthetic traffic generator.
+## Failure
 
-It calls the bulletin-board API every few seconds to simulate external application usage.
+A healthy application Pod is manually deleted.
 
-It is intentionally excluded from the SRE evidence path.
+Kubernetes' ReplicaSet controller restores the desired replica count without assistance from the SRE agent.
 
-The SRE agent:
+<img src="docs/images/scenario-1-kubernetes-self-heal.png" alt="Kubernetes replacing a deleted bulletin-board Pod" width="100%">
 
-* does not read user-agent logs,
-* has no RBAC access to the `user-agents` namespace,
-* does not use user-agent telemetry for diagnosis.
+## Agent behavior
 
-The traffic generator exists only to create realistic application activity.
+The agent records the Pod disappearance, observes the replacement Pod, verifies Deployment health and application readiness, and correctly performs **no write action**.
+
+The persisted result records:
+
+```text
+incident: pod_disappearance
+status: resolved
+self_healed_by: kubernetes
+health status: HTTP 200
+consecutive successful checks: 2
+agent write action executed: false
+```
+
+The same evidence can be investigated conversationally through the read-only chat branch:
+
+<img src="docs/images/scenario-1-agent-conversation.png" alt="SRE agent explaining Kubernetes self-healing using operational evidence" width="100%">
+
+### Result
+
+**Observe → Verify → No action**
+
+This scenario demonstrates that detecting an incident does not imply that the agent should remediate it. Kubernetes had already restored the desired state, so the safest action was no action.
 
 ---
 
-## `sre-agent`
+# Scenario 2 — Automatically roll back a deployment regression
 
-The primary operational component.
+## Failure
 
-It performs:
+A new application revision, `bulletin-board-service:0.3.0`, initially becomes healthy and then develops a runtime database connection-pool exhaustion failure.
 
-* continuous Kubernetes observation,
-* incident detection,
-* Kubernetes evidence collection,
-* application health checks,
-* deployment-history analysis,
-* AI-assisted diagnosis,
-* deterministic remediation policy,
-* automatic rollback where permitted,
-* human-in-the-loop approval,
-* bounded resource remediation,
-* post-remediation verification,
-* persistent incident and audit history.
+The readiness transition is visible directly:
 
-Current demonstration version:
+<img src="docs/images/scenario-2-runtime-regression.png" alt="Runtime deployment regression changing readiness from 200 to 503 and then no service response" width="100%">
+
+The failure therefore differs from a simple rollout that never starts. The release first passes readiness and then degrades while serving traffic.
+
+## Evidence-driven diagnosis
+
+The SRE workflow correlates the failure with the recent release and gathers revision-scoped evidence:
+
+- the previous `0.4.0` revision had a persistently healthy baseline,
+- the new `0.3.0` revision became unready shortly after activation,
+- multiple consecutive readiness probes returned `503`,
+- the Deployment dropped to `0 ready / 0 available`,
+- application logs showed SQLAlchemy `QueuePool` exhaustion,
+- PostgreSQL remained `Running` and `Ready` with zero restarts,
+- a known-good previous Deployment template was available.
+
+The conversational agent can explain why automatic rollback was allowed:
+
+<img src="docs/images/scenario-2-agent-conversation-2.png" alt="SRE agent explaining why deterministic policy allowed automatic rollback" width="100%">
+
+## Deterministic authorization
+
+The diagnosis itself does not authorize a Kubernetes write.
+
+The rollback policy independently requires conditions such as:
 
 ```text
-sre-agent:0.5.1
+recent release
++ enough consecutive failures
++ high-confidence deployment-regression diagnosis
++ previous revision available
++ previous baseline healthy
++ current and previous templates differ
++ PostgreSQL Kubernetes state healthy
++ deployment explicitly allowlisted
++ automatic remediation enabled
+= rollback allowed
 ```
+
+The demonstrated incident passed the deterministic policy and the SRE agent rolled the complete Deployment template back to the known-good revision.
+
+Post-action verification required multiple successful readiness probes before the incident was marked resolved.
+
+### Result
+
+**Observe → Diagnose → Deterministic policy allows → Automatic rollback → Verify**
 
 ---
 
-# Unified LangGraph Workflow
+# Scenario 3 — Require human approval when root cause is uncertain
 
-A single graph supports chat and all three incident scenarios.
+## Failure
 
-Conceptually:
+A controlled memory-growth fault causes the application container to repeatedly exceed its `192Mi` memory limit.
 
-```text
-START
-  |
-  v
-route_request
-  |
-  +---------------- chat ----------------+
-  |                                      |
-  v                                      v
-chat_agent <-> read-only tools           END
+Kubernetes reports repeated `OOMKilled` events and eventually `CrashLoopBackOff` behavior:
 
-incident
-  |
-  v
-load_incident
-  |
-  v
-classify
-  |
-  +---- pod disappearance
-  |       |
-  |       v
-  |   verify self-heal
-  |       |
-  |       v
-  |      END
-  |
-  +---- deployment regression
-  |       |
-  |       v
-  |   collect evidence
-  |       |
-  |       v
-  |   diagnose
-  |       |
-  |       v
-  |   deterministic policy
-  |       |
-  |       +---- rollback allowed
-  |       |          |
-  |       |          v
-  |       |       rollback
-  |       |          |
-  |       |          v
-  |       |       verify
-  |       |
-  |       +---- no action
-  |
-  +---- resource OOM
-          |
-          v
-      resource triage
-          |
-          v
-      human approval
-          |
-          +---- reject --> END
-          |
-          +---- approve
-                    |
-                    v
-             bounded mitigation
-                    |
-                    v
-               verify
-                    |
-                    v
-                   END
-```
+<img src="docs/images/scenario-3-memory-growth-crash.png" alt="Repeated OOMKilled and CrashLoopBackOff events for the bulletin-board application" width="100%">
 
-The Kubernetes Pod running `sre-agent` contains two containers:
+## Evidence and uncertainty
+
+`OOMKilled` and exit code `137` are strong evidence that the container exceeded its memory limit.
+
+They do **not**, however, prove why memory use grew.
+
+The available evidence cannot reliably distinguish among possibilities such as:
+
+- an application memory-growth defect,
+- legitimate workload-driven memory demand,
+- an undersized memory limit.
+
+The workflow therefore records a high-confidence observed condition while keeping the likely root cause `unknown`.
+
+## Human-in-the-loop safety boundary
+
+Because the evidence does not justify autonomous remediation, deterministic policy blocks automatic action and interrupts the workflow for an operator decision.
+
+<img src="docs/images/scenario-3-human-in-the-loop.png" alt="LangGraph human approval interrupt for bounded memory mitigation" width="100%">
+
+The interrupt exposes:
 
 ```text
-sre-agent
-    FastAPI service
-    continuous observer
-    incident persistence
-
-studio-agent-server
-    LangGraph development Agent Server
-    same exported sre_agent graph
-    LangSmith Studio interaction
+observed condition: container_memory_limit_exceeded
+likely root cause: unknown
+automatic action allowed: false
+proposed action: increase_memory_limit
+current limit: 192Mi
+hard maximum: 512Mi
+scope: bulletin-board/bulletin-board:api
 ```
 
-These are two runtime containers, not two independent AI agents.
+The operator can approve or reject the bounded action.
+
+## Bounded mitigation and verification
+
+After explicit approval, the workflow changes the memory limit from `192Mi` to `512Mi`, waits for the replacement Pod, and verifies application recovery.
+
+<img src="docs/images/scenario-3-agent-action-confirmed.png" alt="Human-approved memory mitigation successfully verified" width="100%">
+
+The result intentionally records:
+
+```text
+action: increase_memory_limit_human_approved
+status: succeeded
+verified: true
+health successes: 5
+root cause resolved: false
+```
+
+That distinction matters: **the system records successful mitigation without claiming that the underlying root cause was fixed.**
+
+### Result
+
+**Observe → Diagnose uncertainty → Block autonomous action → Human approval → Bounded mitigation → Verify**
 
 ---
 
-# Evidence-Driven Diagnosis
+# Safety model
 
-The agent reasons over evidence collected from operational systems rather than receiving unrestricted cluster access.
+The SRE agent uses a dedicated Kubernetes ServiceAccount.
 
-Evidence can include:
-
-* Pod state,
-* readiness,
-* restart counts,
-* previous termination reason,
-* exit code,
-* container logs,
-* Kubernetes Events,
-* Deployment revisions,
-* ReplicaSets,
-* container image,
-* Pod-template configuration,
-* resource requests and limits,
-* Services,
-* Endpoints,
-* application readiness,
-* dependency health.
-
-A central design principle is the distinction between:
+It can read the operational evidence required for the demo in the `bulletin-board` namespace, while its demonstrated write capability is intentionally narrow:
 
 ```text
+PATCH apps/deployments
+resourceName=bulletin-board
+```
+
+It cannot:
+
+- delete Pods,
+- patch arbitrary Deployments,
+- read the `user-agents` namespace,
+- expose arbitrary Kubernetes write operations as LLM tools.
+
+Infrastructure writes are deterministic workflow nodes rather than general-purpose model tools.
+
+This creates multiple safety layers:
+
+```text
+evidence grounding
+      ↓
+AI-assisted diagnosis
+      ↓
+deterministic action policy
+      ↓
+human approval where required
+      ↓
+bounded action implementation
+      ↓
+Kubernetes RBAC
+      ↓
+post-action verification
+      ↓
+audit trail
+```
+
+# Evidence model
+
+The system can use:
+
+- Pod/container state and restart counts
+- previous termination reason and exit code
+- Kubernetes Events
+- bulletin-board application logs
+- Deployment and ReplicaSet history
+- resource requests and limits
+- application readiness history
+- Services and Endpoints
+- PostgreSQL Kubernetes health
+- incident records
+- approval records
+- remediation records
+
+The evidence model explicitly separates:
+
+```text
+raw observation
+      ↓
+normalized operational evidence
+      ↓
 observed condition
-```
-
-and:
-
-```text
-inferred root cause
-```
-
-For example:
-
-```text
-Observed:
-
-reason = OOMKilled
-exit code = 137
-memory limit = 192Mi
-repeated restart cycles
-
-Strongly supported condition:
-
-container_memory_limit_exceeded
-
-Possible root causes:
-
-application memory-growth defect
-workload-driven memory demand
-undersized memory limit
-```
-
-The system should not convert:
-
-```text
-OOMKilled
-```
-
-into:
-
-```text
-confirmed memory leak
-```
-
-without supporting evidence.
-
-See [Evidence Model](docs/evidence-model.md).
-
----
-
-# Safety Model
-
-The core safety principle is:
-
-> AI reasoning is not the infrastructure authorization boundary.
-
-Several independent layers constrain operational behavior.
-
-## 1. Read-oriented evidence collection
-
-The LLM primarily reasons over controlled operational evidence.
-
-## 2. Deterministic remediation policy
-
-Application logic determines:
-
-* when automatic remediation is permitted,
-* whether rollback is supported,
-* whether human approval is required,
-* which human actions are allowed,
-* resource limits and hard maximums,
-* required verification behavior.
-
-## 3. Human approval
-
-Higher-risk actions pause the LangGraph workflow and require explicit approval.
-
-## 4. Bounded remediation implementations
-
-Infrastructure changes are predefined operations rather than arbitrary shell commands generated by an LLM.
-
-## 5. Kubernetes RBAC
-
-The SRE agent uses a dedicated ServiceAccount.
-
-Its read access includes:
-
-```text
-Pods
-Pod logs
-Events
-Services
-Endpoints
-Deployments
-ReplicaSets
-```
-
-Its only demonstrated Kubernetes write permission is:
-
-```text
-PATCH
-apps/deployments
-resourceName: bulletin-board
-```
-
-The agent cannot:
-
-* delete Pods,
-* patch arbitrary Deployments,
-* modify unrelated namespaces,
-* access the user-agent namespace.
-
-## 6. Verification
-
-A successful Kubernetes PATCH is not considered equivalent to successful recovery.
-
-The workflow checks workload behavior after remediation.
-
-See [Safety Model](docs/safety.md).
-
----
-
-# Scenario 1 — Kubernetes Self-Healing
-
-## Failure
-
-The running bulletin-board Pod is manually deleted.
-
-## Kubernetes behavior
-
-The Deployment controller detects the missing replica and creates another Pod.
-
-## SRE-agent behavior
-
-The agent observes:
-
-```text
-old Pod disappeared
-        ↓
-replacement Pod created
-        ↓
-container started
-        ↓
-application temporarily unavailable
-        ↓
-readiness succeeded
-        ↓
-recovery verified
-```
-
-The agent performs **no remediation**.
-
-This is intentional.
-
-The useful behavior is:
-
-```text
-observe
-+
-verify
-+
-explain
-```
-
-rather than modifying a workload Kubernetes is already recovering successfully.
-
-Full experiment:
-
-[Scenario 1 — Kubernetes Self-Healing](demo/scenario-1.md)
-
----
-
-# Scenario 2 — Deployment Regression
-
-## Failure
-
-A newly deployed application revision starts successfully and then gradually exhausts its database connection pool.
-
-Application readiness deteriorates while PostgreSQL remains healthy.
-
-## Evidence
-
-The agent correlates:
-
-```text
-recent Deployment change
-+
-new ReplicaSet
-+
-runtime failures after rollout
-+
-readiness degradation
-+
-healthy PostgreSQL dependency
-```
-
-## Policy
-
-Deterministic policy evaluates whether rollback is justified.
-
-Relevant conditions include:
-
-* recent Deployment,
-* sufficient failure threshold,
-* supported previous revision,
-* diagnosis confidence,
-* remediation cooldown,
-* automatic remediation enabled.
-
-## Remediation
-
-When policy permits it:
-
-```text
-degraded revision
       ↓
-automatic rollback
+AI-assisted causal inference
       ↓
-previous safe revision
+condition confidence / root-cause confidence
       ↓
-replacement Pod
+deterministic policy
       ↓
-readiness verification
-      ↓
-remediation succeeded
+action or escalation
 ```
 
-The LLM participates in diagnosis but does not independently authorize rollback.
+An observed fact and an inferred cause are not treated as the same thing.
 
-Full experiment:
+# Conversational investigation
 
-[Scenario 2 — Deployment Regression](demo/scenario-2.md)
+The read-only chat branch lets an engineer ask questions about incidents after the operational workflow completes.
 
----
-
-# Scenario 3 — Repeated OOMKilled
-
-Scenario 3 demonstrates the strongest safety behavior in the project.
-
-## Failure
-
-A controlled memory-growth fault causes the application process to repeatedly exceed its configured:
+Examples:
 
 ```text
-192Mi
+What happened most recently to the bulletin-board application?
+
+What operational evidence supports that conclusion?
+
+Why was automatic rollback allowed?
+
+What evidence supports the conclusion that the new release caused the
+failure rather than PostgreSQL?
 ```
 
-memory limit.
+The conversational tools are intentionally bounded:
 
-Kubernetes reports:
+- `get_incidents` returns compact recent summaries,
+- `get_incident_details` retrieves bounded evidence for one incident,
+- event, Pod, approval, remediation, log, and revision tools enforce limits,
+- every tool response has a hard output-size guard.
+
+The conversational branch has no infrastructure write tools.
+
+# Reproducibility
+
+Useful commands:
+
+```bash
+make status
+make verify
+make reset
+make port-forward
+make logs
+```
+
+Without `make`:
+
+```bash
+./demo/verify.sh
+./demo/reset.sh
+```
+
+Scenario walkthroughs:
+
+- [Scenario 1 — Kubernetes self-healing](demo/scenario-1.md)
+- [Scenario 2 — Automatic rollback](demo/scenario-2.md)
+- [Scenario 3 — Human-approved OOM mitigation](demo/scenario-3.md)
+
+# SRE API
 
 ```text
-reason = OOMKilled
-exit code = 137
+GET  /health
+GET  /incidents
+GET  /incidents/{incident_id}
+GET  /events
+GET  /probe-history
+GET  /pod-history
+GET  /deployment-history
+GET  /remediations
+GET  /approvals
+POST /chat
 ```
 
-The application restarts and begins growing memory again.
-
-This creates repeated failure rather than durable self-healing.
-
-## Diagnosis
-
-The agent can confidently identify:
-
-```text
-observed_condition:
-container_memory_limit_exceeded
-```
-
-but available evidence does not prove why memory reached the limit.
-
-The root cause therefore remains uncertain.
-
-## Policy
-
-The system produces:
-
-```text
-automatic_action_allowed = false
-```
-
-Increasing resources could:
-
-* hide an application defect,
-* consume additional node capacity,
-* only delay another OOM.
-
-The workflow therefore pauses.
-
-## Human approval
-
-LangGraph creates a human-in-the-loop interrupt.
-
-The allowed action is predefined:
-
-```text
-increase_memory_limit
-```
-
-The operator explicitly approves the action.
-
-## Bounded remediation
-
-The permitted change is:
-
-```text
-Deployment: bulletin-board
-Container:  api
-
-192Mi
-   ↓
-512Mi
-
-hard maximum = 512Mi
-```
-
-The operator is not granting permission for an arbitrary memory value.
-
-## Verification
-
-After the Deployment changes:
-
-```text
-new Pod created
-        ↓
-readiness becomes healthy
-        ↓
-restart count remains stable
-        ↓
-5 consecutive successful observations
-        ↓
-remediation = succeeded
-```
-
-The remediation record explicitly retains:
-
-```text
-root_cause_resolved = false
-```
-
-The result is therefore:
-
-```text
-mitigation succeeded
-```
-
-not:
-
-```text
-root cause fixed
-```
-
-Full experiment:
-
-[Scenario 3 — Human-Approved OOM Mitigation](demo/scenario-3.md)
-
----
-
-# Repository Structure
+# Repository structure
 
 ```text
 .
@@ -699,347 +453,85 @@ Full experiment:
 │   ├── k8s/
 │   ├── tests/
 │   ├── Dockerfile
-│   ├── README.md
-│   ├── requirements.txt
 │   └── VERSION
-│
 ├── sre-agent/
 │   ├── app/
 │   ├── k8s/
 │   ├── Dockerfile
 │   ├── langgraph.json
-│   ├── README.md
-│   ├── requirements.txt
 │   └── VERSION
-│
 ├── user-agent/
 │   ├── app/
 │   ├── k8s/
 │   ├── Dockerfile
-│   ├── README.md
-│   ├── requirements.txt
 │   └── VERSION
-│
 ├── demo/
 │   ├── scenario-1.md
 │   ├── scenario-2.md
 │   ├── scenario-3.md
-│   ├── verify.sh
-│   └── reset.sh
-│
+│   ├── reset.sh
+│   └── verify.sh
 ├── docs/
+│   ├── images/
 │   ├── architecture.md
-│   ├── safety.md
 │   ├── evidence-model.md
-│   └── limitations.md
-│
+│   ├── limitations.md
+│   └── safety.md
 ├── Makefile
-├── README.md
-└── .gitignore
+└── README.md
 ```
 
----
-
-# Technology
-
-The project uses:
-
-```text
-Python
-FastAPI
-PostgreSQL
-Docker-compatible OCI images
-containerd
-Kubernetes
-Calico
-LangGraph
-LangSmith Studio
-OpenAI models
-Kubernetes RBAC
-```
-
-The development Kubernetes environment is a real single-node `kubeadm` cluster rather than a mocked Kubernetes API.
-
----
-
-# Kubernetes Namespaces
-
-The core workloads are separated into namespaces:
-
-```text
-bulletin-board
-    bulletin-board-service
-    PostgreSQL
-
-sre-agents
-    sre-agent
-
-user-agents
-    user-agent
-```
-
-The SRE agent has no RBAC access to the `user-agents` namespace.
-
----
-
-# Requirements
-
-The current demo assumes:
-
-* Linux environment,
-* working Kubernetes cluster,
-* `kubectl`,
-* container runtime capable of loading locally built images,
-* PostgreSQL-compatible persistent storage,
-* OpenAI API key,
-* LangSmith API key for Studio interaction,
-* StorageClass compatible with the PostgreSQL manifest.
-
-The current PostgreSQL manifest references:
-
-```text
-local-path-retain
-```
-
-If your cluster does not provide this StorageClass, update the manifest to use one available in your environment.
-
----
-
-# Secrets
-
-Real credentials are intentionally excluded from Git.
-
-Example manifests are provided under the component `k8s/` directories.
-
-Copy the examples and provide your own values locally.
-
-Never commit:
-
-```text
-OpenAI API keys
-LangSmith API keys
-database passwords
-real Kubernetes Secret manifests
-.env files containing credentials
-```
-
-The root `.gitignore` excludes common secret and runtime artifacts.
-
----
-
-# Useful Commands
-
-The repository provides a small Makefile interface.
-
-## Show workload status
-
-```bash
-make status
-```
-
-## Verify the environment
-
-```bash
-make verify
-```
-
-This checks:
-
-* namespaces,
-* workloads,
-* application image,
-* memory baseline,
-* SRE-agent image,
-* application readiness,
-* selected RBAC safety properties.
-
-Expected SRE-agent authorization includes:
-
-```text
-read bulletin-board Pods       = yes
-read bulletin-board logs       = yes
-patch bulletin-board Deployment = yes
-delete Pods                    = no
-access user-agent Pods         = no
-```
-
-## Restore the demo baseline
-
-```bash
-make reset
-```
-
-This:
-
-* disables synthetic faults,
-* reapplies the canonical bulletin-board Deployment,
-* restores the 192Mi memory limit,
-* waits for rollout,
-* verifies readiness.
-
-## Port-forward SRE APIs
-
-```bash
-make port-forward
-```
-
-This exposes:
-
-```text
-SRE API:
-http://127.0.0.1:8081
-
-LangGraph Agent Server:
-http://127.0.0.1:2024
-```
-
-## Follow application logs
-
-```bash
-make logs
-```
-
----
-
-# SRE Agent API
-
-The agent exposes endpoints useful for inspecting operational history:
-
-```text
-GET /health
-GET /incidents
-GET /incidents/{incident_id}
-GET /events
-GET /probe-history
-GET /pod-history
-GET /deployment-history
-GET /remediations
-GET /approvals
-POST /chat
-```
-
-For example:
-
-```bash
-curl -s \
-  'http://127.0.0.1:8081/incidents?hours=1' \
-  | python3 -m json.tool
-```
-
-Or:
-
-```bash
-curl -s \
-  'http://127.0.0.1:8081/remediations?hours=1' \
-  | python3 -m json.tool
-```
-
----
-
-# Operational Audit Trail
-
-Incident state is persisted in PostgreSQL.
-
-Records include:
-
-* incidents,
-* Pod observations,
-* probe history,
-* Deployment history,
-* Kubernetes Events,
-* diagnosis,
-* confidence,
-* policy decisions,
-* human approvals,
-* remediation actions,
-* verification observations.
-
-This means the system can answer more than:
-
-```text
-What action did the agent take?
-```
-
-It can also help answer:
-
-```text
-What did it observe?
-
-Why did it reach that diagnosis?
-
-How confident was it?
-
-Why was an action allowed or denied?
-
-Was human approval required?
-
-What exactly changed?
-
-Did the application actually recover?
-```
-
----
+# Environment
+
+The demonstrated environment uses:
+
+- Linux
+- real single-node `kubeadm` Kubernetes cluster
+- containerd
+- Calico
+- PostgreSQL
+- Python / FastAPI
+- LangGraph
+- LangSmith Studio
+- OpenAI model
+
+The PostgreSQL manifest references the local development StorageClass `local-path-retain`; replace it if your cluster uses a different StorageClass.
+
+Real credentials are intentionally excluded from the repository. Example Secret manifests are provided; real Secret resources should be created locally.
 
 # Limitations
 
-This project is an experimental prototype, not a production autonomous-operations platform.
+This is a focused portfolio and research prototype, not a production-ready autonomous operations platform.
 
-Current limitations include:
+Important limitations include:
 
-* single-node Kubernetes cluster,
-* synthetic application and failure injection,
-* only three specialized incident classes,
-* no full Prometheus/OpenTelemetry metrics pipeline,
-* no heap profiling for memory diagnosis,
-* probabilistic LLM diagnosis,
-* diagnostic confidence is not statistically calibrated,
-* narrow remediation surface,
-* prototype-grade human approval,
-* development LangGraph Agent Server,
-* non-durable development workflow thread state across Pod replacement,
-* single SRE-agent replica,
-* development-oriented PostgreSQL deployment,
-* environment-specific StorageClass,
-* no Kubernetes NetworkPolicies,
-* simplified secret management,
-* no admission-policy enforcement,
-* short post-remediation verification windows.
+- single-node Kubernetes environment,
+- synthetic application fault injection,
+- intentionally narrow incident taxonomy,
+- no full metrics stack,
+- probabilistic LLM diagnosis,
+- confidence values are not formally calibrated,
+- narrowly scoped remediation actions,
+- development LangGraph Agent Server thread/checkpoint persistence is ephemeral across Pod replacement,
+- short verification windows,
+- mitigation does not imply root-cause resolution.
 
-The project intentionally documents these limitations rather than presenting the prototype as production-ready.
+See [Limitations](docs/limitations.md) for the complete discussion.
 
-See:
+# Conclusion
 
-[Limitations](docs/limitations.md)
+The experiments do not argue that an LLM should autonomously operate arbitrary production Kubernetes infrastructure.
 
----
+They support a narrower principle:
 
-# What the Experiments Demonstrate
+> AI-assisted operational reasoning becomes substantially safer and more useful when it is grounded in verifiable evidence and separated from deterministic authorization, bounded remediation, human oversight, infrastructure-level access control, post-action verification, and persistent audit records.
 
-The experiments do **not** demonstrate that an LLM should autonomously operate arbitrary production Kubernetes environments.
-
-They support a narrower architectural conclusion:
-
-> AI-assisted operational reasoning can be useful when it is grounded in observable evidence and separated from deterministic authorization, bounded remediation, human oversight, infrastructure-level access control, and post-action verification.
-
-The most important property is not maximum autonomy.
-
-It is controlled escalation of authority:
+The three scenarios deliberately demonstrate different authority levels:
 
 ```text
-Scenario 1
-AI observes.
-Kubernetes heals.
-
-Scenario 2
-AI diagnoses.
-Policy allows a narrow reversible automatic action.
-
-Scenario 3
-AI diagnoses.
-Policy refuses autonomous action.
-A human approves a bounded mitigation.
-The system verifies stabilization.
-The system does not falsely claim that the root cause was fixed.
+native Kubernetes recovery → agent observes
+strong revision-scoped evidence → bounded automatic remediation
+uncertain causal evidence → human approval required
 ```
 
-That separation between **reasoning and authority** is the central design principle of this project.
+That separation is the core of the project.
