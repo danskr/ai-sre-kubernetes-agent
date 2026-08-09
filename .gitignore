@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs / runtime artifacts
+*.log
+*.pid
+
+# Build/package artifacts
+build/
+dist/
+*.egg-info/
+
+# Container image exports
+*.tar
+*.tar.gz
+
+# Local LangGraph runtime state
+.langgraph_api/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Kubernetes secrets - commit examples only
+**/k8s/*secret*.yaml
+!**/k8s/*secret*.example.yaml
+!**/k8s/*secret*-example.yaml

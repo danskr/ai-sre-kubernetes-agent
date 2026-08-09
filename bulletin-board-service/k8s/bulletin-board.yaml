@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bulletin-board
+  namespace: bulletin-board
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: bulletin-board
+  template:
+    metadata:
+      labels:
+        app: bulletin-board
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: api
+          image: bulletin-board-service:0.4.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: BULLETIN_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: bulletin-board-secrets
+                  key: BULLETIN_DATABASE_URL
+            - name: DEMO_FAULTS_ENABLED
+              value: "true"
+            - name: DB_POOL_SIZE
+              value: "2"
+            - name: DB_MAX_OVERFLOW
+              value: "1"
+            - name: DB_POOL_TIMEOUT_SECONDS
+              value: "0.75"
+            - name: MEMORY_GROWTH_CHUNK_MIB
+              value: "12"
+            - name: MEMORY_GROWTH_INTERVAL_SECONDS
+              value: "1.5"
+            - name: MEMORY_GROWTH_START_DELAY_SECONDS
+              value: "3"
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8000
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 2
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 96Mi
+            limits:
+              cpu: 500m
+              memory: 192Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bulletin-board
+  namespace: bulletin-board
+spec:
+  type: NodePort
+  selector:
+    app: bulletin-board
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      nodePort: 30080

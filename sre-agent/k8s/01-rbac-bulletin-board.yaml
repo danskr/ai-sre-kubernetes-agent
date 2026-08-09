@@ -1,0 +1,36 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sre-agent-observer
+  namespace: bulletin-board
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "events", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch"]
+
+  # The only write permission. It is restricted to the single bulletin-board
+  # Deployment and PATCH only. Scenario 2 uses it for policy-approved rollback;
+  # Scenario 3 uses the same narrow permission only after a human approves the
+  # bounded memory-limit mitigation in LangGraph Studio.
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["bulletin-board"]
+    verbs: ["patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sre-agent-observer
+  namespace: bulletin-board
+subjects:
+  - kind: ServiceAccount
+    name: sre-agent
+    namespace: sre-agents
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: sre-agent-observer

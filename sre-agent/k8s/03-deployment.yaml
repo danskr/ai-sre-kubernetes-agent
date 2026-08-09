@@ -1,0 +1,214 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sre-agent
+  namespace: sre-agents
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sre-agent
+  template:
+    metadata:
+      labels:
+        app: sre-agent
+    spec:
+      serviceAccountName: sre-agent
+      containers:
+        - name: sre-agent
+          image: sre-agent:0.5.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: api
+              containerPort: 8080
+          env:
+            - name: APP_NAMESPACE
+              value: "bulletin-board"
+            - name: APP_LABEL_SELECTOR
+              value: "app=bulletin-board"
+            - name: APP_DEPLOYMENT_NAME
+              value: "bulletin-board"
+            - name: APP_CONTAINER_NAME
+              value: "api"
+            - name: APP_PROBE_URL
+              value: "http://bulletin-board.bulletin-board.svc.cluster.local/health/ready"
+            - name: OBSERVE_INTERVAL_SECONDS
+              value: "5"
+            - name: AGENT_SERVER_URL
+              value: "http://127.0.0.1:2024"
+            - name: AGENT_SERVER_ASSISTANT_ID
+              value: "sre_agent"
+            - name: AGENT_SERVER_RUN_TIMEOUT_SECONDS
+              value: "120"
+            - name: SELF_HEAL_VERIFY_TIMEOUT_SECONDS
+              value: "45"
+            - name: SELF_HEAL_VERIFY_SUCCESSES
+              value: "2"
+            - name: AUTO_REMEDIATION_ENABLED
+              value: "true"
+            - name: AUTO_REMEDIATION_FAILURE_THRESHOLD
+              value: "2"
+            - name: AUTO_REMEDIATION_RECENT_DEPLOYMENT_SECONDS
+              value: "600"
+            - name: AUTO_REMEDIATION_CONFIDENCE_THRESHOLD
+              value: "0.85"
+            - name: AUTO_REMEDIATION_COOLDOWN_SECONDS
+              value: "90"
+            - name: ROLLBACK_VERIFY_TIMEOUT_SECONDS
+              value: "60"
+            - name: ROLLBACK_VERIFY_SUCCESSES
+              value: "3"
+            - name: RESOURCE_OOM_RESTART_THRESHOLD
+              value: "2"
+            - name: HUMAN_MEMORY_LIMIT_TARGET
+              value: "512Mi"
+            - name: HUMAN_MEMORY_LIMIT_MAX
+              value: "512Mi"
+            - name: RESOURCE_VERIFY_TIMEOUT_SECONDS
+              value: "45"
+            - name: RESOURCE_VERIFY_SUCCESSES
+              value: "5"
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sre-agent-secrets
+                  key: OPENAI_API_KEY
+            - name: OPENAI_MODEL
+              valueFrom:
+                secretKeyRef:
+                  name: sre-agent-secrets
+                  key: OPENAI_MODEL
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sre-agent-secrets
+                  key: DATABASE_URL
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: api
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: api
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+
+        # Official LangGraph Agent Server development runtime used by LangSmith Studio
+        # AND by the background observer. It hosts the single exported sre_agent graph
+        # for chat, Scenario 1 verification, Scenario 2 auto-remediation, and Scenario 3 HITL.
+        - name: studio-agent-server
+          image: sre-agent:0.5.1
+          imagePullPolicy: IfNotPresent
+          command: ["langgraph"]
+          args:
+            - "dev"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "2024"
+            - "--no-browser"
+            - "--no-reload"
+            - "--allow-blocking"
+          ports:
+            - name: studio
+              containerPort: 2024
+          env:
+            - name: APP_NAMESPACE
+              value: "bulletin-board"
+            - name: APP_LABEL_SELECTOR
+              value: "app=bulletin-board"
+            - name: APP_DEPLOYMENT_NAME
+              value: "bulletin-board"
+            - name: APP_CONTAINER_NAME
+              value: "api"
+            - name: APP_PROBE_URL
+              value: "http://bulletin-board.bulletin-board.svc.cluster.local/health/ready"
+            - name: RESOURCE_OOM_RESTART_THRESHOLD
+              value: "2"
+            - name: HUMAN_MEMORY_LIMIT_TARGET
+              value: "512Mi"
+            - name: HUMAN_MEMORY_LIMIT_MAX
+              value: "512Mi"
+            - name: RESOURCE_VERIFY_TIMEOUT_SECONDS
+              value: "45"
+            - name: RESOURCE_VERIFY_SUCCESSES
+              value: "5"
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sre-agent-secrets
+                  key: OPENAI_API_KEY
+            - name: OPENAI_MODEL
+              valueFrom:
+                secretKeyRef:
+                  name: sre-agent-secrets
+                  key: OPENAI_MODEL
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sre-agent-secrets
+                  key: DATABASE_URL
+            - name: LANGSMITH_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sre-agent-studio-secrets
+                  key: LANGSMITH_API_KEY
+            # Keep operational prompts/tool results local unless you deliberately
+            # choose to enable LangSmith cloud tracing later.
+            - name: LANGSMITH_TRACING
+              value: "false"
+          readinessProbe:
+            httpGet:
+              path: /ok
+              port: studio
+            initialDelaySeconds: 8
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /ok
+              port: studio
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sre-agent
+  namespace: sre-agents
+spec:
+  selector:
+    app: sre-agent
+  ports:
+    - name: api
+      port: 8080
+      targetPort: api
+    - name: studio
+      port: 2024
+      targetPort: studio

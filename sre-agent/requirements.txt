@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+langgraph
+langchain-openai
+kubernetes
+psycopg[binary]
+httpx
+pydantic-settings
+langgraph-cli[inmem]>=0.4.30

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://langgra.ph/schema.json",
+  "dependencies": ["."],
+  "graphs": {
+    "sre_agent": "./app/graph.py:studio_graph"
+  },
+  "python_version": "3.12"
+}
