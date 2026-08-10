@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
         logger.info("SRE agent service stopped")
 
 
-app = FastAPI(title="SRE Agent", version="0.5.1", lifespan=lifespan)
+app = FastAPI(title="SRE Agent", version="0.5.2", lifespan=lifespan)
 
 
 class ChatRequest(BaseModel):

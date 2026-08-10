@@ -16,7 +16,7 @@ spec:
       serviceAccountName: sre-agent
       containers:
         - name: sre-agent
-          image: sre-agent:0.5.1
+          image: sre-agent:0.5.2
           imagePullPolicy: IfNotPresent
           ports:
             - name: api
@@ -112,7 +112,7 @@ spec:
         # AND by the background observer. It hosts the single exported sre_agent graph
         # for chat, Scenario 1 verification, Scenario 2 auto-remediation, and Scenario 3 HITL.
         - name: studio-agent-server
-          image: sre-agent:0.5.1
+          image: sre-agent:0.5.2
           imagePullPolicy: IfNotPresent
           command: ["langgraph"]
           args:

@@ -2,9 +2,9 @@
 
 Canonical SRE agent for the Kubernetes reliability portfolio project.
 
-Version `0.5.1` exports **one LangGraph workflow** named `sre_agent`. The background observer, LangSmith Studio, and the conversational interface all use the same workflow definition.
+Version `0.5.2` exports **one LangGraph workflow** named `sre_agent`. The background observer, LangSmith Studio, and the conversational interface all use the same workflow definition.
 
-`0.5.1` fixes Studio human-approval normalization: an approval payload containing only `{"decision":"approve"}` is mapped to the single bounded action offered by the interrupt (`increase_memory_limit`).
+`0.5.2` keeps the Studio human-approval normalization from 0.5.1 and adds bounded conversational evidence tools. Recent-incident chat now returns compact summaries first and fetches bounded detail for a single incident on demand, preventing large historical records from overflowing the model request budget.
 
 ## One workflow, three scenarios
 
@@ -86,16 +86,16 @@ The ServiceAccount has one write capability: `patch` on the single Deployment `b
 ## Build
 
 ```bash
-docker build -t sre-agent:0.5.1 .
-docker save sre-agent:0.5.1 -o /tmp/sre-agent-0.5.1.tar
-sudo ctr -n k8s.io images import /tmp/sre-agent-0.5.1.tar
+docker build -t sre-agent:0.5.2 .
+docker save sre-agent:0.5.2 -o /tmp/sre-agent-0.5.2.tar
+sudo ctr -n k8s.io images import /tmp/sre-agent-0.5.2.tar
 ```
 
 ## Deploy
 
 ```bash
 kubectl apply -f k8s/00-namespace-serviceaccount.yaml
-kubectl apply -f k8s/01-rbac-default-namespace.yaml
+kubectl apply -f k8s/01-rbac-bulletin-board.yaml
 kubectl apply -f k8s/03-deployment.yaml
 kubectl -n sre-agents rollout status deployment/sre-agent
 ```

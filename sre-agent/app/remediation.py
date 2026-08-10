@@ -309,3 +309,4 @@ def collect_regression_evidence(consecutive_probe_failures: int) -> dict[str, An
         "recent_kubernetes_events": db.get_events(1)[:80],
         "application_logs": current_app_logs(200),
     }
+
