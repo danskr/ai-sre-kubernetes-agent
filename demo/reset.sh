@@ -18,6 +18,34 @@ SET enabled = false,
 '
 
 echo
+echo "=== Supersede stale active SRE incidents ==="
+kubectl -n sre-agents exec deployment/sre-agent -c sre-agent -- python -c '
+from app import db
+
+kinds = ("pod_disappearance", "runtime_regression", "resource_oom")
+count = 0
+
+for kind in kinds:
+    while True:
+        incident = db.get_active_incident(kind)
+        if incident is None:
+            break
+
+        db.update_incident(
+            incident["incident_id"],
+            status="superseded",
+            summary="Superseded during demo reset; environment returned to canonical healthy baseline.",
+            details={"superseded_reason": "demo_reset"},
+            end=True,
+        )
+
+        print("superseded", kind, incident["incident_id"])
+        count += 1
+
+print("superseded incidents:", count)
+'
+echo
+
 echo "=== Restore canonical bulletin-board Deployment ==="
 
 kubectl apply \
