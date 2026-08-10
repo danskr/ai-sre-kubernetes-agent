@@ -86,9 +86,7 @@ The graph deliberately separates:
        width="65%">
 </p>
 
-Detailed design:
-
-- [Architecture](docs/architecture.md)
+Other details:
 - [Safety model](docs/safety.md)
 - [Evidence model](docs/evidence-model.md)
 - [Limitations](docs/limitations.md)
