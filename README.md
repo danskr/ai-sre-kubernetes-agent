@@ -46,9 +46,9 @@ The design separates **reasoning from authorization** so the LLM can interpret i
 
 | Scenario | Failure | Agent behavior | Authority level |
 |---|---|---|---|
-| **1 — Kubernetes self-healing** | Application Pod disappears | Detects the disruption and verifies native Kubernetes recovery | Observe only |
-| **2 — Deployment regression** | A recent release develops runtime DB-pool exhaustion | Correlates failure with the rollout, evaluates deterministic rollback policy, rolls back, and verifies recovery | Bounded autonomous remediation |
-| **3 — Repeated OOMKilled** | Container repeatedly exceeds its 192Mi memory limit | Identifies the observed condition, preserves root-cause uncertainty, and pauses for operator approval | Human-approved remediation |
+| **1 : Kubernetes self-healing** | Application Pod disappears | Detects the disruption and verifies native Kubernetes recovery | Observe only |
+| **2 : Deployment regression** | A recent release develops runtime DB-pool exhaustion | Correlates failure with the rollout, evaluates deterministic rollback policy, rolls back, and verifies recovery | Bounded autonomous remediation |
+| **3 : Repeated OOMKilled** | Container repeatedly exceeds its 192Mi memory limit | Identifies the observed condition, preserves root-cause uncertainty, and pauses for operator approval | Human-approved remediation |
 
 ```text
 Scenario 1
@@ -76,10 +76,7 @@ The workflow contains four main execution paths:
 
 - **Resource/OOM mitigation**: analyzes repeated `OOMKilled` failures, preserves uncertainty about the underlying root cause, pauses for explicit human approval, and executes only a bounded memory-limit increase when approved.
 
-All remediation paths end with **post-action verification**, ensuring that the workflow confirms the operational outcome rather than assuming that an executed action was successful.
-
-
-The graph deliberately separates:
+All remediation paths end with **post-action verification**, ensuring that the workflow confirms the operational outcome rather than assuming that an executed action was successful. The graph deliberately separates:
 
 - evidence collection from diagnosis,
 - AI-assisted diagnosis from deterministic authorization,
@@ -135,7 +132,7 @@ Version `0.5.2` adds bounded conversational evidence retrieval so a chat request
 
 ---
 
-# Scenario 1 — Observe and verify Kubernetes self-healing
+# Scenario 1 : Observe and verify Kubernetes self-healing
 
 ## Failure
 
@@ -172,7 +169,7 @@ This scenario demonstrates that detecting an incident does not imply that the ag
 
 ---
 
-# Scenario 2 — Automatically roll back a deployment regression
+# Scenario 2 : Automatically roll back a deployment regression
 
 ## Failure
 
@@ -229,7 +226,7 @@ Post-action verification required multiple successful readiness probes before th
 
 ---
 
-# Scenario 3 — Require human approval when root cause is uncertain
+# Scenario 3 : Require human approval when root cause is uncertain
 
 ## Failure
 
@@ -421,9 +418,9 @@ Without `make`:
 
 Scenario walkthroughs:
 
-- [Scenario 1 — Kubernetes self-healing](demo/scenario-1.md)
-- [Scenario 2 — Automatic rollback](demo/scenario-2.md)
-- [Scenario 3 — Human-approved OOM mitigation](demo/scenario-3.md)
+- [Scenario 1 : Kubernetes self-healing](demo/scenario-1.md)
+- [Scenario 2 : Automatic rollback](demo/scenario-2.md)
+- [Scenario 3 : Human-approved OOM mitigation](demo/scenario-3.md)
 
 # SRE API
 
