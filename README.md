@@ -89,6 +89,24 @@ All remediation paths end with **post-action verification**, ensuring that the w
 
 ## Architecture
 
+The architecture separates workload generation, application runtime, operational reasoning, and workflow orchestration into distinct components. The `user-agent` generates synthetic HTTP traffic against the `bulletin-board-service`, which runs on Kubernetes and persists application data in PostgreSQL. The `sre-agent` observes the application through Kubernetes APIs and operational signals, builds incident evidence, performs AI-assisted diagnosis, applies deterministic policy, executes only bounded remediation, and verifies the resulting system state. LangGraph provides the orchestration layer that coordinates both incident-response workflows and conversational investigation.
+
+The main architectural components are:
+
+- **`user-agent`**: generates continuous synthetic traffic to simulate an external application workload without acting as an observability source.
+
+- **`bulletin-board-service`**: the application under observation, exposing API, liveness, readiness, and controlled fault-injection endpoints while storing data in PostgreSQL.
+
+- **PostgreSQL**: provides persistent application storage and also serves as an independently observable dependency during incident diagnosis.
+
+- **Kubernetes**: hosts the application and agents and exposes runtime state such as Pods, Deployments, ReplicaSets, Events, resource limits, health status, and rollout history.
+
+- **`sre-agent`**: continuously observes operational state, persists evidence, performs diagnosis, evaluates safety policy, executes bounded remediation, and verifies recovery.
+
+- **LangGraph Agent Server**: runs the exported `sre_agent` workflow and coordinates the execution paths for conversational investigation, Kubernetes self-healing verification, deterministic rollback, and human-approved resource mitigation.
+
+Together, these components create a closed operational loop from workload activity and telemetry collection through reasoning, controlled action, and post-action verification.
+
 <p align="center">
   <img src="docs/images/architecture.png"
        alt="Architecture of the AI SRE Kubernetes Agent system"
