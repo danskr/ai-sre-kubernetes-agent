@@ -2,6 +2,20 @@
 
 Evidence-driven AI-assisted Kubernetes incident diagnosis and remediation with deterministic safety controls, bounded automation, human approval, and verifiable operational evidence.
 
+## Why this project exists
+
+Jane leads an SRE team responsible for deploying and operating a growing portfolio of client-facing applications running on Kubernetes. Each application has a different operational profile: resource requirements, traffic patterns, active user base, dependencies, and failure modes.
+
+Her team already has strong observability in place. Metrics, logs, health checks, Kubernetes events, and alerts provide precise operational signals when something goes wrong. But when an incident occurs, engineers still spend significant time correlating those signals, reconstructing what changed, distinguishing symptoms from root causes, and repeatedly working through familiar diagnostic procedures across many Pods and services.
+
+Jane starts asking a different question:
+
+> What if the observability layer could do more than collect telemetry and trigger alerts? What if it could also reason over operational evidence, form an explainable diagnosis, and determine the safest next step?
+
+For low-risk situations, perhaps the system could recognize that Kubernetes has already recovered and simply verify the outcome. When the evidence strongly points to a recent deployment regression, it might safely perform a tightly constrained automatic rollback. And when the evidence is incomplete or the proposed action carries greater risk, it could stop and ask an engineer for approval.
+
+This project explores that idea: augmenting traditional Kubernetes observability with LLM-powered reasoning while keeping infrastructure actions evidence-driven, constrained, explainable, and under deterministic safety controls.
+
 ## Project question
 
 > Can an AI agent system diagnose Kubernetes deployment failures using verifiable operational evidence while remaining safe, explainable, and useful to production engineers?
