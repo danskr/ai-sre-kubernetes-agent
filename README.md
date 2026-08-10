@@ -93,15 +93,15 @@ The architecture separates workload generation, application runtime, operational
 
 The main architectural components are:
 
-- **`user-agent`**: generates continuous synthetic traffic to simulate an external application workload without acting as an observability source.
+- **user-agent**: generates continuous synthetic traffic to simulate an external application workload without acting as an observability source.
 
-- **`bulletin-board-service`**: the application under observation, exposing API, liveness, readiness, and controlled fault-injection endpoints while storing data in PostgreSQL.
+- **bulletin-board-service**: the application under observation, exposing API, liveness, readiness, and controlled fault-injection endpoints while storing data in PostgreSQL.
 
 - **PostgreSQL**: provides persistent application storage and also serves as an independently observable dependency during incident diagnosis.
 
 - **Kubernetes**: hosts the application and agents and exposes runtime state such as Pods, Deployments, ReplicaSets, Events, resource limits, health status, and rollout history.
 
-- **`sre-agent`**: continuously observes operational state, persists evidence, performs diagnosis, evaluates safety policy, executes bounded remediation, and verifies recovery.
+- **sre-agent**: continuously observes operational state, persists evidence, performs diagnosis, evaluates safety policy, executes bounded remediation, and verifies recovery.
 
 - **LangGraph Agent Server**: runs the exported `sre_agent` workflow and coordinates the execution paths for conversational investigation, Kubernetes self-healing verification, deterministic rollback, and human-approved resource mitigation.
 
