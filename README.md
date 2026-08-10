@@ -66,9 +66,20 @@ Observe → Diagnose uncertainty → Policy blocks → Human approves
 
 ## LangGraph workflow
 
-The project exposes one LangGraph workflow, `sre_agent`, used for both incident processing and conversational investigation.
+The LangGraph workflow gives the SRE agent a structured execution model in which different operational situations follow explicitly defined paths. A common routing layer determines whether the request is a conversational investigation or an incident workflow, and incident processing then branches according to the type of failure detected. Evidence collection, diagnosis, authorization, remediation, and verification are intentionally represented as separate workflow stages rather than being hidden inside one autonomous agent loop.
 
-<img src="docs/images/agent-workflow.png" alt="LangGraph workflow for AI SRE Kubernetes Agent" width="100%">
+The workflow contains four main execution paths:
+
+- **Conversational investigation** — provides engineers with a read-only chat interface for exploring previously collected incidents and operational evidence.
+
+- **Kubernetes self-healing verification** — detects a disappeared Pod and verifies whether Kubernetes restored the workload successfully, taking no remediation action when native recovery is sufficient.
+
+- **Deployment regression remediation** — collects revision-specific evidence, performs AI-assisted diagnosis, evaluates deterministic rollback policy, automatically restores the previous known-good Deployment when permitted, and verifies recovery.
+
+- **Resource/OOM mitigation** — analyzes repeated `OOMKilled` failures, preserves uncertainty about the underlying root cause, pauses for explicit human approval, and executes only a bounded memory-limit increase when approved.
+
+All remediation paths end with **post-action verification**, ensuring that the workflow confirms the operational outcome rather than assuming that an executed action was successful.
+
 
 The graph deliberately separates:
 
@@ -77,6 +88,9 @@ The graph deliberately separates:
 - automatic remediation from human-approved remediation,
 - remediation from post-action verification,
 - conversational read-only investigation from infrastructure write paths.
+
+<img src="docs/images/agent-workflow.png" alt="LangGraph workflow for AI SRE Kubernetes Agent" width="100%">
+
 
 ## Architecture
 
