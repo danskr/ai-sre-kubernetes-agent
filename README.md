@@ -34,7 +34,7 @@ The project evaluates four dimensions:
 
 ## Core design principle
 
-The LLM is **not** the infrastructure authorization boundary.
+The design separates **reasoning from authorization** so the LLM can interpret incidents without having unrestricted control over infrastructure. Operational signals such as health checks, Kubernetes state, logs, events, and deployment history are first collected and reduced to relevant **evidence**. The LLM uses that evidence to form an explainable diagnosis, but the diagnosis alone cannot trigger a write action. Instead, a **deterministic policy layer** evaluates predefined safety conditions and decides whether automation is allowed. Higher-risk or uncertain situations are routed to a **human approval** step. Any approved action is deliberately **bounded in scope**, while Kubernetes **RBAC** provides an additional least-privilege enforcement layer. After remediation, the system performs **post-action verification** rather than assuming success. The diagnosis, decision, action, and outcome are then preserved in a **persistent audit record**. The picture below summarizes this progression from observation to a controlled, verifiable operational response.
 
 <p align="center">
   <img src="docs/images/core-design-principle.png"
