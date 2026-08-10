@@ -68,13 +68,13 @@ The LangGraph workflow gives the SRE agent a structured execution model in which
 
 The workflow contains four main execution paths:
 
-- **Conversational investigation** — provides engineers with a read-only chat interface for exploring previously collected incidents and operational evidence.
+- **Conversational investigation**: provides engineers with a read-only chat interface for exploring previously collected incidents and operational evidence.
 
-- **Kubernetes self-healing verification** — detects a disappeared Pod and verifies whether Kubernetes restored the workload successfully, taking no remediation action when native recovery is sufficient.
+- **Kubernetes self-healing verification**: detects a disappeared Pod and verifies whether Kubernetes restored the workload successfully, taking no remediation action when native recovery is sufficient.
 
-- **Deployment regression remediation** — collects revision-specific evidence, performs AI-assisted diagnosis, evaluates deterministic rollback policy, automatically restores the previous known-good Deployment when permitted, and verifies recovery.
+- **Deployment regression remediation**: collects revision-specific evidence, performs AI-assisted diagnosis, evaluates deterministic rollback policy, automatically restores the previous known-good Deployment when permitted, and verifies recovery.
 
-- **Resource/OOM mitigation** — analyzes repeated `OOMKilled` failures, preserves uncertainty about the underlying root cause, pauses for explicit human approval, and executes only a bounded memory-limit increase when approved.
+- **Resource/OOM mitigation**: analyzes repeated `OOMKilled` failures, preserves uncertainty about the underlying root cause, pauses for explicit human approval, and executes only a bounded memory-limit increase when approved.
 
 All remediation paths end with **post-action verification**, ensuring that the workflow confirms the operational outcome rather than assuming that an executed action was successful.
 
