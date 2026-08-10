@@ -513,18 +513,14 @@ See [Limitations](docs/limitations.md) for the complete discussion.
 
 # Conclusion
 
-The experiments do not argue that an LLM should autonomously operate arbitrary production Kubernetes infrastructure.
+The goal was not to show that LLM should autonomously operate arbitrary production Kubernetes infrastructure, but to be focused on narrower principle:
 
-They support a narrower principle:
+> Agent-assisted operational reasoning becomes substantially safer and more useful when it is grounded in verifiable evidence and separated from deterministic authorization, bounded remediation, human oversight, infrastructure-level access control, post-action verification, and persistent audit records.
 
-> AI-assisted operational reasoning becomes substantially safer and more useful when it is grounded in verifiable evidence and separated from deterministic authorization, bounded remediation, human oversight, infrastructure-level access control, post-action verification, and persistent audit records.
-
-The three scenarios deliberately demonstrate different authority levels:
+to that end, the given three scenarios are focused on different level at which agent might operate:
 
 ```text
 native Kubernetes recovery → agent observes
 strong revision-scoped evidence → bounded automatic remediation
 uncertain causal evidence → human approval required
 ```
-
-That separation is the core of the project.
