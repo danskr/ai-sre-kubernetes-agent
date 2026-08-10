@@ -42,8 +42,6 @@ The design separates **reasoning from authorization** so the LLM can interpret i
        width="65%">
 </p>
 
-The degree of automation depends on the strength of the operational evidence and the risk of the proposed action.
-
 ## Demonstrated scenarios
 
 | Scenario | Failure | Agent behavior | Authority level |
