@@ -133,7 +133,7 @@ A healthy application Pod is manually deleted.
 
 Kubernetes' ReplicaSet controller restores the desired replica count without assistance from the SRE agent.
 
-<img src="docs/images/scenario-1-kubernetes-self-heal.png" alt="Kubernetes replacing a deleted bulletin-board Pod" width="650%">
+<img src="docs/images/scenario-1-kubernetes-self-heal.png" alt="Kubernetes replacing a deleted bulletin-board Pod" width="65%">
 
 ## Agent behavior
 
@@ -170,7 +170,7 @@ A new application revision, `bulletin-board-service:0.3.0`, initially becomes he
 
 The readiness transition is visible directly:
 
-<img src="docs/images/scenario-2-runtime-regression.png" alt="Runtime deployment regression changing readiness from 200 to 503 and then no service response" width="100%">
+<img src="docs/images/scenario-2-runtime-regression.png" alt="Runtime deployment regression changing readiness from 200 to 503 and then no service response" width="65%">
 
 The failure therefore differs from a simple rollout that never starts. The release first passes readiness and then degrades while serving traffic.
 
@@ -227,7 +227,7 @@ A controlled memory-growth fault causes the application container to repeatedly 
 
 Kubernetes reports repeated `OOMKilled` events and eventually `CrashLoopBackOff` behavior:
 
-<img src="docs/images/scenario-3-memory-growth-crash.png" alt="Repeated OOMKilled and CrashLoopBackOff events for the bulletin-board application" width="100%">
+<img src="docs/images/scenario-3-memory-growth-crash.png" alt="Repeated OOMKilled and CrashLoopBackOff events for the bulletin-board application" width="65%">
 
 ## Evidence and uncertainty
 
