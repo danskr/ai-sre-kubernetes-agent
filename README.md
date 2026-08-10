@@ -267,7 +267,7 @@ The operator can approve or reject the bounded action.
 
 After explicit approval, the workflow changes the memory limit from `192Mi` to `512Mi`, waits for the replacement Pod, and verifies application recovery.
 
-<img src="docs/images/scenario-3-agent-action-confirmed.png" alt="Human-approved memory mitigation successfully verified" width="100%">
+<img src="docs/images/scenario-3-agent-action-confirmed.png" alt="Human-approved memory mitigation successfully verified" width="65%">
 
 The result intentionally records:
 
