@@ -80,30 +80,11 @@ The graph deliberately separates:
 
 ## Architecture
 
-```text
-user-agent
-    │ synthetic HTTP traffic
-    ▼
-bulletin-board-service ─────► PostgreSQL
-    ▲
-    │ Kubernetes API / logs / events / health / deployment history
-    │
-sre-agent
-    ├── continuous observer
-    ├── evidence persistence
-    ├── AI-assisted diagnosis
-    ├── deterministic policy
-    ├── bounded remediation
-    └── verification
-          │
-          ▼
-    LangGraph Agent Server
-    └── one exported graph: sre_agent
-        ├── conversational investigation
-        ├── Scenario 1: verify Kubernetes self-healing
-        ├── Scenario 2: deterministic automatic rollback
-        └── Scenario 3: human-approved bounded mitigation
-```
+<p align="center">
+  <img src="docs/images/architecture.png"
+       alt="Architecture of the AI SRE Kubernetes Agent system"
+       width="100%">
+</p>
 
 Detailed design:
 
