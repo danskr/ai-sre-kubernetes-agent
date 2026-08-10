@@ -17,7 +17,7 @@ For low-risk situations, perhaps the system could recognize that Kubernetes has 
 This project explores that idea: augmenting traditional Kubernetes observability with LLM-powered reasoning while keeping infrastructure actions evidence-driven, constrained, explainable, and under deterministic safety controls.
 
 <p align="center">
-  <img src="docs/images/main.png" alt="SRE engineer monitoring Kubernetes applications and operational signals" width="100%">
+  <img src="docs/images/main.png" alt="SRE engineer monitoring Kubernetes applications and operational signals" width="65%">
 </p>
 
 
@@ -133,7 +133,7 @@ A healthy application Pod is manually deleted.
 
 Kubernetes' ReplicaSet controller restores the desired replica count without assistance from the SRE agent.
 
-<img src="docs/images/scenario-1-kubernetes-self-heal.png" alt="Kubernetes replacing a deleted bulletin-board Pod" width="100%">
+<img src="docs/images/scenario-1-kubernetes-self-heal.png" alt="Kubernetes replacing a deleted bulletin-board Pod" width="650%">
 
 ## Agent behavior
 
