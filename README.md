@@ -36,25 +36,11 @@ The project evaluates four dimensions:
 
 The LLM is **not** the infrastructure authorization boundary.
 
-```text
-observation
-    ↓
-evidence collection
-    ↓
-AI-assisted diagnosis
-    ↓
-deterministic policy
-    ↓
-human approval when required
-    ↓
-bounded remediation
-    ↓
-Kubernetes RBAC
-    ↓
-post-action verification
-    ↓
-persistent audit record
-```
+<p align="center">
+  <img src="docs/images/core-design-principle.png"
+       alt="Core design principle for safe AI-assisted Kubernetes remediation"
+       width="100%">
+</p>
 
 The degree of automation depends on the strength of the operational evidence and the risk of the proposed action.
 
