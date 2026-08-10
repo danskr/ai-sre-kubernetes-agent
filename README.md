@@ -39,7 +39,7 @@ The LLM is **not** the infrastructure authorization boundary.
 <p align="center">
   <img src="docs/images/core-design-principle.png"
        alt="Core design principle for safe AI-assisted Kubernetes remediation"
-       width="100%">
+       width="65%">
 </p>
 
 The degree of automation depends on the strength of the operational evidence and the risk of the proposed action.
@@ -83,7 +83,7 @@ The graph deliberately separates:
 <p align="center">
   <img src="docs/images/architecture.png"
        alt="Architecture of the AI SRE Kubernetes Agent system"
-       width="100%">
+       width="65%">
 </p>
 
 Detailed design:
