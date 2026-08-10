@@ -16,6 +16,11 @@ For low-risk situations, perhaps the system could recognize that Kubernetes has 
 
 This project explores that idea: augmenting traditional Kubernetes observability with LLM-powered reasoning while keeping infrastructure actions evidence-driven, constrained, explainable, and under deterministic safety controls.
 
+<p align="center">
+  <img src="docs/images/main.png" alt="SRE engineer monitoring Kubernetes applications and operational signals" width="100%">
+</p>
+
+
 ## Project question
 
 > Can an AI agent system diagnose Kubernetes deployment failures using verifiable operational evidence while remaining safe, explainable, and useful to production engineers?
